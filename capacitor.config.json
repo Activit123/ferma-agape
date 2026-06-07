@@ -1,0 +1,6 @@
+{
+  "appId": "com.fermaagape.app",
+  "appName": "Ferma Agape",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
