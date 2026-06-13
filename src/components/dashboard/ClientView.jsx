@@ -165,6 +165,37 @@ export default function ClientView({ onLogout, user }) {
     } catch (err) { alert("Eroare la salvarea datelor."); }
   };
 
+  // ================= HARDWARE BACK BUTTON (ANDROID) =================
+  const stateRef = useRef({ tab, activeChatUser, isEditingProfile });
+  useEffect(() => {
+    stateRef.current = { tab, activeChatUser, isEditingProfile };
+  });
+
+  useEffect(() => {
+    let listener;
+    const addBackListener = async () => {
+      try {
+        const { App: CapacitorApp } = await import('@capacitor/app');
+        listener = await CapacitorApp.addListener('backButton', () => {
+          const s = stateRef.current;
+          if (s.isEditingProfile) {
+            setIsEditingProfile(false);
+          } else if (s.activeChatUser && s.tab === 'chat') {
+            setActiveChatUser(null);
+          } else if (s.tab !== 'home') {
+            setTab('home');
+          } else {
+            CapacitorApp.exitApp();
+          }
+        });
+      } catch (e) {}
+    };
+    addBackListener();
+    return () => {
+      if (listener) listener.remove();
+    };
+  }, []);
+
   // ================= LOGICĂ CHAT =================
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -233,15 +264,15 @@ export default function ClientView({ onLogout, user }) {
 
       case 'chat':
         return (
-          <div className="w-full h-[100dvh] md:h-[calc(100vh-60px)] md:max-w-2xl md:mx-auto flex flex-col animate-fade-in bg-white md:rounded-2xl md:shadow-sm md:border md:mt-6 overflow-hidden">
+          <div className="w-full h-full md:max-w-2xl md:mx-auto flex flex-col animate-fade-in bg-white md:rounded-2xl md:shadow-sm md:border md:my-6 overflow-hidden">
             
             {/* HEADER CHAT DINAMIC (Fermă sau Șofer) */}
             <div className={`p-4 ${activeChatUser ? 'bg-blue-600' : 'bg-emerald-700'} text-white flex items-center gap-3 shrink-0 transition-colors`}>
-               <button onClick={() => setTab('profile')} className={`p-2 -ml-2 rounded-full transition ${activeChatUser ? 'hover:bg-blue-500' : 'hover:bg-emerald-600'}`}>
-                 <ChevronRight className="w-5 h-5 rotate-180"/>
+               <button onClick={() => setTab('home')} className={`p-2 -ml-2 rounded-full transition flex items-center font-bold text-sm ${activeChatUser ? 'hover:bg-blue-500' : 'hover:bg-emerald-600'}`}>
+                 <ChevronRight className="w-5 h-5 rotate-180 mr-1"/> Acasă
                </button>
                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold">
-                 {activeChatUser ? activeChatUser.firstName.charAt(0) : <Leaf className="w-5 h-5"/>}
+                 {activeChatUser ? activeChatUser.firstName.charAt(0) : <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain"/>}
                </div>
                <div>
                  <h2 className="font-bold leading-tight">{activeChatUser ? `Șofer: ${activeChatUser.firstName} ${activeChatUser.lastName}` : 'Ferma Agape'}</h2>
@@ -458,59 +489,83 @@ export default function ClientView({ onLogout, user }) {
 
       case 'profile':
         return (
-          <div className="max-w-2xl mx-auto space-y-6 animate-fade-in pb-10">
-            <div className="bg-white p-8 rounded-2xl shadow-sm border relative">
-              <button onClick={() => setIsEditingProfile(!isEditingProfile)} className="absolute top-4 right-4 text-emerald-700 hover:bg-emerald-50 p-2 rounded-lg transition flex items-center text-sm font-bold">
-                {isEditingProfile ? <><X className="w-4 h-4 mr-1"/> Anulează</> : <><Edit className="w-4 h-4 mr-1"/> Editează</>}
-              </button>
-
-              <div className="w-20 h-20 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto mb-4"><UserPlus className="h-10 w-10"/></div>
-              
-              {!isEditingProfile ? (
-                <div className="text-center">
-                  <h2 className="font-bold text-2xl text-slate-800">{user.firstName} {user.lastName}</h2>
-                  <p className="text-slate-500 mt-1">{user.address}</p>
-                  <p className="text-slate-500">{user.phone}</p>
-                </div>
-              ) : (
-                <form onSubmit={handleSaveProfile} className="mt-4 text-left grid gap-4 md:grid-cols-2 animate-fade-in">
-                  <label className="text-sm font-semibold text-gray-600">Prenume: <input type="text" value={profileForm.firstName} onChange={e => setProfileForm({...profileForm, firstName: e.target.value})} className="mt-1 w-full border rounded-lg p-3 outline-none focus:border-emerald-500 bg-gray-50" required/></label>
-                  <label className="text-sm font-semibold text-gray-600">Nume: <input type="text" value={profileForm.lastName} onChange={e => setProfileForm({...profileForm, lastName: e.target.value})} className="mt-1 w-full border rounded-lg p-3 outline-none focus:border-emerald-500 bg-gray-50" required/></label>
-                  <label className="text-sm font-semibold text-gray-600">Telefon: <input type="text" value={profileForm.phone} onChange={e => setProfileForm({...profileForm, phone: e.target.value})} className="mt-1 w-full border rounded-lg p-3 outline-none focus:border-emerald-500 bg-gray-50" required/></label>
-                  <label className="text-sm font-semibold text-gray-600">Adresă: <input type="text" value={profileForm.address} onChange={e => setProfileForm({...profileForm, address: e.target.value})} className="mt-1 w-full border rounded-lg p-3 outline-none focus:border-emerald-500 bg-gray-50" required/></label>
-                  <button type="submit" className="md:col-span-2 bg-emerald-700 text-white font-bold py-3 rounded-xl hover:bg-emerald-800 transition flex justify-center items-center shadow-md"><Save className="w-5 h-5 mr-2"/> Salvează Datele</button>
-                </form>
-              )}
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-                <button onClick={() => setTab('orders')} className="flex items-center justify-between bg-white p-5 rounded-xl shadow-sm border hover:border-emerald-200 transition">
-                  <span className="flex items-center font-medium text-slate-700"><History className="w-5 h-5 mr-3 text-slate-400"/> Istoric Comenzi</span> 
-                  <ChevronRight className="w-5 h-5 text-gray-400"/>
-                </button>
-                <button onClick={() => setTab('orders')} className="flex items-center justify-between bg-white p-5 rounded-xl shadow-sm border hover:border-emerald-200 transition">
-                  <span className="flex items-center font-medium text-slate-700"><Calendar className="w-5 h-5 mr-3 text-slate-400"/> Abonamentul Meu</span> 
-                  <ChevronRight className="w-5 h-5 text-gray-400"/>
-                </button>
-            </div>
+          <div className="max-w-5xl mx-auto animate-fade-in pb-10">
+            <h2 className="font-bold text-2xl mb-6 text-slate-800 hidden md:block">Contul Meu</h2>
             
-            {/* Buton Chat cu Ferma */}
-            <button onClick={() => { setActiveChatUser(null); setTab('chat'); }} className="w-full flex items-center justify-between bg-white p-5 rounded-xl shadow-sm border hover:border-emerald-200 transition">
-              <span className="flex items-center font-medium text-slate-700"><MessageCircle className="w-5 h-5 mr-3 text-emerald-500"/> Chat cu Fermierul</span> 
-              <ChevronRight className="w-5 h-5 text-gray-400"/>
-            </button>
+            <div className="grid gap-6 lg:grid-cols-12">
+              
+              {/* COLOANA STÂNGA: DATE PROFIL */}
+              <div className="lg:col-span-5">
+                <div className="bg-white p-8 rounded-2xl shadow-sm border relative h-full flex flex-col">
+                  <button onClick={() => setIsEditingProfile(!isEditingProfile)} className="absolute top-4 right-4 text-emerald-700 hover:bg-emerald-50 p-2 rounded-lg transition flex items-center text-sm font-bold">
+                    {isEditingProfile ? <><X className="w-4 h-4 mr-1"/> Anulează</> : <><Edit className="w-4 h-4 mr-1"/> Editează</>}
+                  </button>
 
-            {/* Buton Chat cu Șoferul (apare doar dacă există o livrare programată AZI și are șofer asignat) */}
-            {myDriver && (
-              <button onClick={() => { setActiveChatUser(myDriver); setTab('chat'); }} className="w-full flex items-center justify-between bg-blue-50 border-blue-200 p-5 rounded-xl shadow-sm border hover:bg-blue-100 transition">
-                <span className="flex items-center font-bold text-blue-800"><Truck className="w-5 h-5 mr-3 text-blue-600"/> Contactează Șoferul de Azi ({myDriver.firstName})</span> 
-                <ChevronRight className="w-5 h-5 text-blue-600"/>
-              </button>
-            )}
+                  <div className="w-20 h-20 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto mb-4 shrink-0"><UserPlus className="h-10 w-10"/></div>
+                  
+                  {!isEditingProfile ? (
+                    <div className="text-center flex-1 flex flex-col justify-center">
+                      <h2 className="font-bold text-2xl text-slate-800">{user.firstName} {user.lastName}</h2>
+                      <p className="text-slate-500 mt-2 font-medium">{user.address}</p>
+                      <p className="text-slate-500 mt-1 font-medium">{user.phone}</p>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSaveProfile} className="mt-4 text-left grid gap-4 animate-fade-in flex-1">
+                      <label className="text-sm font-semibold text-gray-600">Prenume: <input type="text" value={profileForm.firstName} onChange={e => setProfileForm({...profileForm, firstName: e.target.value})} className="mt-1 w-full border rounded-lg p-3 outline-none focus:border-emerald-500 bg-gray-50" required/></label>
+                      <label className="text-sm font-semibold text-gray-600">Nume: <input type="text" value={profileForm.lastName} onChange={e => setProfileForm({...profileForm, lastName: e.target.value})} className="mt-1 w-full border rounded-lg p-3 outline-none focus:border-emerald-500 bg-gray-50" required/></label>
+                      <label className="text-sm font-semibold text-gray-600">Telefon: <input type="text" value={profileForm.phone} onChange={e => setProfileForm({...profileForm, phone: e.target.value})} className="mt-1 w-full border rounded-lg p-3 outline-none focus:border-emerald-500 bg-gray-50" required/></label>
+                      <label className="text-sm font-semibold text-gray-600">Adresă: <input type="text" value={profileForm.address} onChange={e => setProfileForm({...profileForm, address: e.target.value})} className="mt-1 w-full border rounded-lg p-3 outline-none focus:border-emerald-500 bg-gray-50" required/></label>
+                      <button type="submit" className="mt-auto bg-emerald-700 text-white font-bold py-3 rounded-xl hover:bg-emerald-800 transition flex justify-center items-center shadow-md"><Save className="w-5 h-5 mr-2"/> Salvează</button>
+                    </form>
+                  )}
+                </div>
+              </div>
 
-            <button onClick={onLogout} className="w-full flex md:hidden items-center justify-center bg-red-50 text-red-600 font-bold p-4 rounded-xl shadow-sm border border-red-100 hover:bg-red-100 transition">
-              <LogOut className="w-5 h-5 mr-2"/> Deconectare
-            </button>
+              {/* COLOANA DREAPTA: ACȚIUNI */}
+              <div className="lg:col-span-7 space-y-4">
+                
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <button onClick={() => setTab('orders')} className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border hover:border-emerald-200 transition group">
+                      <div className="flex flex-col items-start">
+                        <History className="w-8 h-8 mb-3 text-emerald-600 group-hover:scale-110 transition-transform"/>
+                        <span className="font-bold text-lg text-slate-800">Istoric Comenzi</span> 
+                        <span className="text-sm text-slate-500 mt-1 text-left">Vezi comenzile anterioare</span>
+                      </div>
+                      <ChevronRight className="w-6 h-6 text-gray-300"/>
+                    </button>
+                    
+                    <button onClick={() => setTab('orders')} className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border hover:border-emerald-200 transition group">
+                      <div className="flex flex-col items-start">
+                        <Calendar className="w-8 h-8 mb-3 text-emerald-600 group-hover:scale-110 transition-transform"/>
+                        <span className="font-bold text-lg text-slate-800">Abonamentul Meu</span> 
+                        <span className="text-sm text-slate-500 mt-1 text-left">Gestionează livrările recurente</span>
+                      </div>
+                      <ChevronRight className="w-6 h-6 text-gray-300"/>
+                    </button>
+                </div>
+                
+                {/* Butoane Chat */}
+                <div className="grid gap-4">
+                  <button onClick={() => { setActiveChatUser(null); setTab('chat'); }} className="w-full flex items-center justify-between bg-white p-5 rounded-xl shadow-sm border hover:border-emerald-200 transition">
+                    <span className="flex items-center font-bold text-slate-700"><MessageCircle className="w-6 h-6 mr-3 text-emerald-500"/> Chat cu Fermierul</span> 
+                    <ChevronRight className="w-5 h-5 text-gray-400"/>
+                  </button>
+
+                  {myDriver && (
+                    <button onClick={() => { setActiveChatUser(myDriver); setTab('chat'); }} className="w-full flex items-center justify-between bg-blue-50 border-blue-200 p-5 rounded-xl shadow-sm border hover:bg-blue-100 transition">
+                      <span className="flex items-center font-bold text-blue-800"><Truck className="w-6 h-6 mr-3 text-blue-600"/> Contactează Șoferul de Azi ({myDriver.firstName})</span> 
+                      <ChevronRight className="w-5 h-5 text-blue-600"/>
+                    </button>
+                  )}
+                </div>
+
+                {/* Buton deconectare vizibil doar pe mobil */}
+                <button onClick={onLogout} className="w-full flex md:hidden items-center justify-center bg-red-50 text-red-600 font-bold p-4 rounded-xl shadow-sm border border-red-100 hover:bg-red-100 transition mt-8">
+                  <LogOut className="w-5 h-5 mr-2"/> Deconectare
+                </button>
+
+              </div>
+            </div>
           </div>
         );
       default:
@@ -519,14 +574,19 @@ export default function ClientView({ onLogout, user }) {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#f7f1e8] flex flex-col md:flex-row font-sans">
+    <div className="h-[100dvh] md:h-screen bg-[#f7f1e8] flex flex-col md:flex-row font-sans overflow-hidden">
       <header className={`${tab === 'chat' ? 'hidden' : 'flex'} md:hidden bg-emerald-700 text-white p-5 rounded-b-3xl shadow-lg sticky top-0 z-30 justify-between items-center shrink-0`}>
         <div><h1 className="text-xl font-serif font-bold">Ferma Agape</h1><p className="text-emerald-100 text-sm mt-1">Salut, {user.firstName}! 👋</p></div>
-        <Leaf className="h-8 w-8 text-emerald-300 opacity-50" />
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Logo" className="h-8 w-8 object-contain hidden sm:block" />
+          <button onClick={onLogout} className="p-2 bg-emerald-800 hover:bg-emerald-900 rounded-full transition text-white shadow-sm" title="Deconectare">
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
       </header>
 
       <aside className="hidden md:flex w-72 bg-white border-r border-slate-200 min-h-screen p-6 flex-col sticky top-0 z-20 shadow-sm shrink-0">
-        <div className="flex items-center gap-3 mb-10"><div className="bg-emerald-700 p-2 rounded-xl text-white"><Leaf className="h-6 w-6" /></div><div><h1 className="text-xl font-serif font-bold text-slate-900">Ferma Agape</h1><p className="text-sm text-slate-500">Salut, {user.firstName}!</p></div></div>
+        <div className="flex items-center gap-3 mb-10"><div className="bg-emerald-700 p-2 rounded-xl text-white"><img src="/logo.png" alt="Logo" className="h-6 w-6 object-contain" /></div><div><h1 className="text-xl font-serif font-bold text-slate-900">Ferma Agape</h1><p className="text-sm text-slate-500">Salut, {user.firstName}!</p></div></div>
         <nav className="flex flex-col space-y-2 flex-1">
           <button onClick={() => setTab('home')} className={`flex items-center p-4 rounded-xl text-sm font-semibold transition ${tab === 'home' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'text-slate-600 hover:bg-slate-50'}`}><Package className="w-5 h-5 mr-3" /> Produse</button>
           <button onClick={() => setTab('cart')} className={`flex items-center justify-between p-4 rounded-xl text-sm font-semibold transition ${tab === 'cart' || tab === 'checkout' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'text-slate-600 hover:bg-slate-50'}`}><div className="flex items-center"><ShoppingCart className="w-5 h-5 mr-3" /> Coșul meu</div>{cart.length > 0 && <span className="bg-emerald-600 text-white px-2 py-0.5 rounded-full text-xs">{cart.length}</span>}</button>
@@ -535,8 +595,8 @@ export default function ClientView({ onLogout, user }) {
         <button onClick={onLogout} className="flex items-center justify-center p-4 text-red-500 hover:bg-red-50 rounded-xl font-bold transition"><LogOut className="w-5 h-5 mr-2" /> Deconectare</button>
       </aside>
 
-      <main className={`flex-1 ${tab === 'chat' ? 'p-0' : 'p-4 md:p-8 pb-24 md:pb-8'} overflow-y-auto`}>
-        <div className={tab === 'chat' ? 'h-full w-full' : 'max-w-6xl mx-auto'}>
+      <main className={`flex-1 flex flex-col w-full relative ${tab === 'chat' ? 'p-0 overflow-hidden' : 'p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto'}`}>
+        <div className={tab === 'chat' ? 'h-full w-full flex flex-col' : 'max-w-6xl mx-auto'}>
           {renderContent()}
         </div>
       </main>

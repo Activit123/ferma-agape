@@ -96,6 +96,40 @@ export default function AdminView({ onLogout, user }) {
       setOrders(data);
     } catch (err) { console.error("Eroare la încărcarea comenzilor:", err); }
   };
+
+  // ================= HARDWARE BACK BUTTON (ANDROID) =================
+  const stateRef = useRef({ view, selectedClientChat, isMapModalOpen, isProductModalOpen, isClientModalOpen, isDriverModalOpen });
+  useEffect(() => {
+    stateRef.current = { view, selectedClientChat, isMapModalOpen, isProductModalOpen, isClientModalOpen, isDriverModalOpen };
+  });
+
+  useEffect(() => {
+    let listener;
+    const addBackListener = async () => {
+      try {
+        const { App: CapacitorApp } = await import('@capacitor/app');
+        listener = await CapacitorApp.addListener('backButton', () => {
+          const s = stateRef.current;
+          if (s.isMapModalOpen || s.isProductModalOpen || s.isClientModalOpen || s.isDriverModalOpen) {
+            setMapModalOpen(false);
+            setProductModalOpen(false);
+            setClientModalOpen(false);
+            setDriverModalOpen(false);
+          } else if (s.selectedClientChat && s.view === 'chat') {
+            setSelectedClientChat(null);
+          } else if (s.view !== 'dash') {
+            setView('dash');
+          } else {
+            CapacitorApp.exitApp();
+          }
+        });
+      } catch(e) {}
+    };
+    addBackListener();
+    return () => {
+      if (listener) listener.remove();
+    };
+  }, []);
   
   // Scroll la mesaje noi pe Admin
   const scrollToBottom = () => {
@@ -284,22 +318,27 @@ export default function AdminView({ onLogout, user }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col md:flex-row font-sans">
+    <div className="h-[100dvh] md:h-screen bg-gray-100 flex flex-col md:flex-row font-sans overflow-hidden">
       
       {/* MOBILE HEADER */}
       <div className="md:hidden bg-emerald-900 text-white p-4 flex items-center justify-between shadow-md sticky top-0 z-30">
         <div className="flex items-center gap-2">
-          <Leaf className="h-6 w-6 text-emerald-300" />
+          <img src="/logo.png" alt="Logo" className="h-6 w-6 object-contain" />
           <span className="text-lg font-bold">Admin Agape</span>
         </div>
-        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 rounded-lg bg-emerald-800 hover:bg-emerald-700 transition">
-          <Menu className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={onLogout} className="p-2 rounded-lg bg-emerald-800 hover:bg-red-600 transition text-white" title="Deconectare">
+            <LogOut className="h-5 w-5" />
+          </button>
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 rounded-lg bg-emerald-800 hover:bg-emerald-700 transition">
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* SIDEBAR DESKTOP */}
       <aside className={`md:flex w-full md:w-64 bg-emerald-950 text-white md:min-h-screen p-4 flex-col justify-between ${isMenuOpen ? 'flex' : 'hidden'} shrink-0 z-20 md:sticky top-0 shadow-xl`}>
-        <h2 className="text-xl font-bold text-emerald-500 mb-0 md:mb-8 hidden md:flex items-center"><Leaf className="mr-2" /> Admin Agape</h2>
+        <h2 className="text-xl font-bold text-emerald-500 mb-0 md:mb-8 hidden md:flex items-center"><img src="/logo.png" alt="Logo" className="h-6 w-6 mr-2 object-contain" /> Admin Agape</h2>
         <nav className="flex flex-col space-y-2 mt-4 md:mt-0">
           <button onClick={() => { setView('dash'); setIsMenuOpen(false); }} className={`flex items-center p-3 rounded-lg text-sm transition ${view === 'dash' ? 'bg-emerald-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Package className="w-5 h-5 mr-3" /> Dashboard</button>
           
@@ -319,7 +358,7 @@ export default function AdminView({ onLogout, user }) {
       </aside>
 
       {/* CONTINUT PRINCIPAL */}
-      <main className={`flex-1 ${view === 'chat' ? 'p-0' : 'p-4 md:p-8'} overflow-y-auto`}>
+      <main className={`flex-1 flex flex-col w-full relative ${view === 'chat' ? 'p-0 overflow-hidden' : 'p-4 md:p-8 overflow-y-auto'}`}>
         
         {/* ===================== VIEW: DASHBOARD ===================== */}
         {view === 'dash' && (
@@ -679,14 +718,19 @@ export default function AdminView({ onLogout, user }) {
 
         {/* ===================== VIEW: CHAT ADMIN (Verde/Emerald) ===================== */}
         {view === 'chat' && (
-          <div className="animate-fade-in max-w-7xl mx-auto h-[calc(100dvh-120px)] md:h-[calc(100dvh-60px)] flex flex-col">
-            <h1 className="text-2xl font-bold mb-6 text-slate-800 hidden md:block">Căsuță Mesaje</h1>
+          <div className="animate-fade-in max-w-7xl w-full mx-auto h-full flex flex-col md:p-6">
+            <h1 className="text-2xl font-bold mb-6 text-slate-800 hidden md:block shrink-0">Căsuță Mesaje</h1>
             
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row flex-1">
+            <div className="bg-white md:rounded-2xl shadow-sm md:border border-slate-200 overflow-hidden flex flex-col md:flex-row flex-1 w-full h-full">
               
               {/* SIDEBAR CONVERSAȚII */}
-              <div className={`w-full md:w-1/3 bg-slate-50 border-r border-slate-200 flex flex-col ${selectedClientChat ? 'hidden md:flex' : 'flex'}`}>
+              <div className={`w-full md:w-1/3 bg-slate-50 border-r border-slate-200 flex-1 flex flex-col ${selectedClientChat ? 'hidden md:flex' : 'flex'}`}>
                 <div className="p-4 border-b border-slate-200 bg-white">
+                  <div className="flex items-center mb-3 md:hidden">
+                    <button onClick={() => setView('dash')} className="text-emerald-600 font-bold text-sm flex items-center hover:underline bg-emerald-50 px-3 py-1.5 rounded-lg transition">
+                      <ChevronRight className="w-4 h-4 rotate-180 mr-1"/> Înapoi la Dashboard
+                    </button>
+                  </div>
                   <input type="text" placeholder="Caută conversație..." className="w-full bg-slate-100 border-none rounded-xl p-3 outline-none text-sm font-medium focus:ring-2 focus:ring-emerald-100" />
                 </div>
                 <div className="flex-1 overflow-y-auto">
@@ -710,7 +754,7 @@ export default function AdminView({ onLogout, user }) {
               </div>
 
               {/* FEREASTRA DE CHAT (VERDE - EMERALD) */}
-              <div className={`w-full md:w-2/3 bg-white flex flex-col ${!selectedClientChat ? 'hidden md:flex' : 'flex'}`}>
+              <div className={`w-full md:w-2/3 bg-white flex-1 flex flex-col ${!selectedClientChat ? 'hidden md:flex' : 'flex'}`}>
                 {!selectedClientChat ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
                     <MessageCircle className="w-16 h-16 mb-4 opacity-30" />
@@ -719,7 +763,7 @@ export default function AdminView({ onLogout, user }) {
                 ) : (
                   <>
                     <div className="p-4 bg-emerald-700 text-white flex items-center gap-3 shadow-sm z-10 md:rounded-tr-2xl">
-                      <button onClick={() => setSelectedClientChat(null)} className="md:hidden p-2 -ml-2 text-emerald-100 hover:bg-emerald-600 rounded-full transition"><ChevronRight className="w-5 h-5 rotate-180"/></button>
+                      <button onClick={() => setSelectedClientChat(null)} className="md:hidden p-2 -ml-2 text-emerald-100 hover:bg-emerald-600 rounded-full transition flex items-center text-sm font-bold"><ChevronRight className="w-5 h-5 rotate-180 mr-1"/> Înapoi</button>
                       <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold">{selectedClientChat.firstName.charAt(0)}</div>
                       <div>
                         <h3 className="font-bold leading-tight">{selectedClientChat.firstName} {selectedClientChat.lastName}</h3>

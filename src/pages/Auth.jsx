@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Leaf } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
+import { Leaf, ChevronLeft } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -71,10 +72,20 @@ export default function Auth({ type }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4eee6] flex items-center justify-center px-4 py-10 sm:py-14">
+    <div className="min-h-screen bg-[#f4eee6] flex flex-col items-center justify-center px-4 py-16 sm:py-14 relative">
+      <Helmet>
+        <title>{isLogin ? 'Autentificare - Ferma Agape' : 'Înregistrare - Ferma Agape'}</title>
+        <meta name="description" content={isLogin ? 'Intră în contul tău Ferma Agape pentru a gestiona abonamentele și comenzile de lactate.' : 'Devino client Ferma Agape și bucură-te de lapte proaspăt livrat la ușa ta.'} />
+        <meta name="robots" content="noindex, follow" />
+      </Helmet>
+      <Link to="/" className="absolute top-4 left-4 sm:top-8 sm:left-8 flex items-center text-emerald-700 font-bold hover:bg-emerald-50 bg-white p-2 sm:px-4 sm:py-2 rounded-full shadow-sm transition border border-emerald-100 z-10">
+        <ChevronLeft className="w-5 h-5 sm:mr-1" />
+        <span className="hidden sm:inline">Înapoi acasă</span>
+        <span className="sm:hidden ml-1 pr-2">Acasă</span>
+      </Link>
       <div className="w-full max-w-2xl rounded-[32px] border border-slate-200 bg-white shadow-xl p-8 sm:p-10">
         <div className="flex flex-col items-center gap-4 text-center mb-8">
-          <div className="flex items-center justify-center h-14 w-14 rounded-3xl bg-emerald-700 text-white"><Leaf className="h-7 w-7" /></div>
+          <div className="flex items-center justify-center h-20 w-20 rounded-3xl bg-white shadow-sm border border-emerald-100 overflow-hidden"><img src="/logo.png" alt="Logo" className="h-16 w-16 object-contain" /></div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-serif font-bold text-slate-900">{isLogin ? 'Bine ai revenit' : 'Devino Client'}</h1>
             <p className="mt-2 text-slate-600 text-sm sm:text-base">{isLogin ? 'Autentifică-te pentru a-ți configura abonamentul și comenzile.' : 'Completează datele pentru a avea acces imediat la aplicație.'}</p>

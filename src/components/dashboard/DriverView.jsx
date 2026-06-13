@@ -174,6 +174,35 @@ export default function DriverView({ onLogout, user }) {
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${myLocation.lat},${myLocation.lng}&destination=${lat},${lng}&travelmode=driving`, '_blank');
   };
 
+  // ================= HARDWARE BACK BUTTON (ANDROID) =================
+  const stateRef = useRef({ tab, selectedUserChat });
+  useEffect(() => {
+    stateRef.current = { tab, selectedUserChat };
+  });
+
+  useEffect(() => {
+    let listener;
+    const addBackListener = async () => {
+      try {
+        const { App: CapacitorApp } = await import('@capacitor/app');
+        listener = await CapacitorApp.addListener('backButton', () => {
+          const s = stateRef.current;
+          if (s.selectedUserChat && s.tab === 'chat') {
+            setSelectedUserChat(null);
+          } else if (s.tab !== 'map') {
+            setTab('map');
+          } else {
+            CapacitorApp.exitApp();
+          }
+        });
+      } catch (e) {}
+    };
+    addBackListener();
+    return () => {
+      if (listener) listener.remove();
+    };
+  }, []);
+
   // Chat Actions
   const openConversation = async (u) => {
     setSelectedUserChat(u);
@@ -195,7 +224,7 @@ export default function DriverView({ onLogout, user }) {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-slate-100 flex flex-col md:flex-row font-sans">
+    <div className="h-[100dvh] md:h-screen bg-slate-100 flex flex-col md:flex-row font-sans overflow-hidden">
       
       {/* HEADER (Ascuns dacă e deschis chat-ul pe mobil) */}
       <header className={`md:hidden ${tab === 'chat' ? 'hidden' : 'block'} bg-slate-900 text-white p-4 sticky top-0 z-30 shadow-lg`}>
@@ -237,17 +266,24 @@ export default function DriverView({ onLogout, user }) {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className={`flex-1 ${tab === 'chat' ? 'p-0' : 'p-4 md:p-8 pb-24 md:pb-8'} overflow-y-auto h-[calc(100dvh-120px)] md:h-screen`}>
+      <main className={`flex-1 flex flex-col w-full relative ${tab === 'chat' ? 'p-0 overflow-hidden' : 'p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto'}`}>
         
-        <div className={tab === 'chat' ? 'h-[100dvh] md:h-screen w-full max-w-7xl mx-auto md:p-8' : 'grid grid-cols-1 lg:grid-cols-2 gap-6 h-full max-w-7xl mx-auto'}>
+        <div className={tab === 'chat' ? 'h-full w-full max-w-7xl mx-auto flex flex-col md:p-8' : 'grid grid-cols-1 lg:grid-cols-2 gap-6 h-full max-w-7xl mx-auto'}>
           
           {/* ===================== VIEW: CHAT ===================== */}
           {tab === 'chat' && (
             <div className="bg-white md:rounded-2xl shadow-sm border overflow-hidden flex flex-col md:flex-row h-full">
               
               {/* SIDEBAR CONVERSAȚII ȘOFER */}
-              <div className={`w-full md:w-1/3 bg-slate-50 border-r border-slate-200 flex flex-col ${selectedUserChat ? 'hidden md:flex' : 'flex'}`}>
-                <div className="p-4 border-b border-slate-200 bg-white"><h3 className="font-bold text-slate-800">Conversații</h3></div>
+              <div className={`w-full md:w-1/3 bg-slate-50 border-r border-slate-200 flex-1 flex flex-col ${selectedUserChat ? 'hidden md:flex' : 'flex'}`}>
+                <div className="p-4 border-b border-slate-200 bg-white">
+                  <div className="flex items-center mb-3 md:hidden">
+                    <button onClick={() => setTab('pending')} className="text-blue-600 font-bold text-sm flex items-center hover:underline bg-blue-50 px-3 py-1.5 rounded-lg transition">
+                      <ChevronRight className="w-4 h-4 rotate-180 mr-1"/> Înapoi la Rută
+                    </button>
+                  </div>
+                  <h3 className="font-bold text-slate-800">Conversații</h3>
+                </div>
                 <div className="flex-1 overflow-y-auto">
                   {conversations.map(conv => (
                     <div key={conv.user.id} onClick={() => openConversation(conv.user)} className={`p-4 border-b border-slate-100 cursor-pointer transition ${selectedUserChat?.id === conv.user.id ? 'bg-blue-50 border-l-4 border-blue-500' : 'bg-white hover:bg-slate-50'}`}>
@@ -268,13 +304,13 @@ export default function DriverView({ onLogout, user }) {
               </div>
 
               {/* FEREASTRA DE CHAT ȘOFER */}
-              <div className={`w-full md:w-2/3 bg-white flex flex-col ${!selectedUserChat ? 'hidden md:flex' : 'flex'}`}>
+              <div className={`w-full md:w-2/3 bg-white flex-1 flex flex-col ${!selectedUserChat ? 'hidden md:flex' : 'flex'}`}>
                 {!selectedUserChat ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-slate-400"><MessageCircle className="w-16 h-16 mb-4 opacity-30" /><p className="font-medium text-lg">Selectează o conversație</p></div>
                 ) : (
                   <>
                     <div className="p-4 bg-slate-900 text-white flex items-center gap-3 shadow-sm z-10 md:rounded-tr-2xl">
-                      <button onClick={() => setSelectedUserChat(null)} className="md:hidden p-2 -ml-2 text-slate-300 hover:bg-slate-700 rounded-full transition"><ChevronRight className="w-5 h-5 rotate-180"/></button>
+                      <button onClick={() => setSelectedUserChat(null)} className="md:hidden p-2 -ml-2 text-slate-300 hover:bg-slate-700 rounded-full transition flex items-center text-sm font-bold"><ChevronRight className="w-5 h-5 rotate-180 mr-1"/> Înapoi</button>
                       <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold">{selectedUserChat.firstName.charAt(0)}</div>
                       <div>
                         <h3 className="font-bold leading-tight">{selectedUserChat.firstName} {selectedUserChat.lastName}</h3>
