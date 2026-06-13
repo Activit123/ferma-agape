@@ -1,4 +1,4 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://agape-backend-production-4b96.up.railway.app';
 
 export const apiRequest = async (endpoint, options = {}) => {
   const token = localStorage.getItem('accessToken');
