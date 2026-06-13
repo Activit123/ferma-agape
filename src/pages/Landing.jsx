@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Menu, X, Star, ChevronRight, CheckCircle, Leaf, Droplets, MapPin, Phone } from 'lucide-react';
+import { Menu, X, Star, ChevronRight, CheckCircle, Leaf, Droplets, MapPin, Phone, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { apiRequest } from '../config/api';
+import { usePwaInstall } from '../hooks/usePwaInstall';
 
 const STOCK_IMAGES = [
   "https://images.unsplash.com/photo-1550583724-b2692b85b150?q=80&w=600&auto=format&fit=crop",
@@ -32,6 +33,8 @@ export default function Landing() {
   const [productsPreview, setProductsPreview] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  
+  const { isInstallable, handleInstallClick } = usePwaInstall();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -82,6 +85,11 @@ export default function Landing() {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
+            {isInstallable && (
+              <button onClick={handleInstallClick} className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-bold transition ${isScrolled ? 'text-blue-700 bg-blue-50 hover:bg-blue-100' : 'text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm'}`}>
+                <Download className="w-4 h-4"/> Descarcă Aplicația
+              </button>
+            )}
             <Link to="/login" className={`px-5 py-2.5 rounded-full font-semibold transition ${isScrolled ? 'text-emerald-700 hover:bg-emerald-50' : 'text-white hover:bg-white/20 backdrop-blur-sm'}`}>Autentificare</Link>
             <Link to="/register" className="px-6 py-2.5 rounded-full bg-emerald-600 text-white font-semibold shadow-lg hover:bg-emerald-700 hover:scale-105 transition-all">Comandă Acum</Link>
           </div>
@@ -93,6 +101,11 @@ export default function Landing() {
 
         {isMenuOpen && (
           <div className="absolute top-full left-0 w-full bg-white shadow-xl border-t md:hidden flex flex-col p-6 gap-4">
+            {isInstallable && (
+              <button onClick={() => { handleInstallClick(); setIsMenuOpen(false); }} className="flex items-center justify-center gap-2 w-full py-3 bg-blue-50 text-blue-700 rounded-xl font-bold mb-2">
+                <Download className="w-5 h-5"/> Instalează Aplicația
+              </button>
+            )}
             <a href="#poveste" onClick={() => setIsMenuOpen(false)} className="text-lg font-medium text-slate-800">Despre noi</a>
             <a href="#produse" onClick={() => setIsMenuOpen(false)} className="text-lg font-medium text-slate-800">Produse</a>
             <a href="#recenzii" onClick={() => setIsMenuOpen(false)} className="text-lg font-medium text-slate-800">Recenzii</a>
