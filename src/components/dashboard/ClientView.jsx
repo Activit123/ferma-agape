@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, Package, ShoppingCart, Calendar, Settings, UserPlus, History, MessageCircle, ChevronRight, LogOut, Leaf, Store, Truck, CreditCard, Banknote, CheckCircle, Edit, Save, X, Send } from 'lucide-react';
+import { AlertTriangle, Package, ShoppingCart, Calendar, Settings, UserPlus, History, MessageCircle, ChevronRight, LogOut, Leaf, Store, Truck, CreditCard, Banknote, CheckCircle, Edit, Save, X, Send, Bell } from 'lucide-react';
 import { apiRequest } from '../../config/api';
+import { settingsService } from '../../services/settings.service';
+import { notificationService } from '../../services/notification.service';
 import { orderService } from '../../services/order.service';
 import { userService } from '../../services/user.service';
 import { messageService } from '../../services/message.service';
@@ -10,6 +12,11 @@ export default function ClientView({ onLogout, user }) {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [myOrders, setMyOrders] = useState([]);
+
+  // ================= STĂRI SETĂRI & NOTIFICĂRI =================
+  const [appSettings, setAppSettings] = useState({ deliveryFee: 0, deliveryDays: [] });
+  const [notifications, setNotifications] = useState([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   // ================= STĂRI CHECKOUT =================
   const [orderType, setOrderType] = useState('PICKUP'); 
@@ -56,6 +63,10 @@ export default function ClientView({ onLogout, user }) {
         if (driver && driver.id) setMyDriver(driver);
       })
       .catch(console.error);
+
+    // NOU: Aducem setările (Taxă + Zile) și Notificările
+    settingsService.get().then(setAppSettings).catch(console.error);
+    notificationService.getMyNotifications().then(setNotifications).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -100,7 +111,8 @@ export default function ClientView({ onLogout, user }) {
     return [...acc, { ...item, quantity: 1 }];
   }, []);
 
-  const total = cart.reduce((sum, item) => sum + item.price, 0);
+  const cartTotal = cart.reduce((sum, item) => sum + item.price, 0);
+  const total = orderType === 'SUBSCRIPTION' ? cartTotal + appSettings.deliveryFee : cartTotal;
 
   const toggleDay = (day) => {
     if (deliveryDays.includes(day)) setDeliveryDays(deliveryDays.filter(d => d !== day));
@@ -129,6 +141,7 @@ export default function ClientView({ onLogout, user }) {
       if (res.ok) {
         if (data.requiresPayment && data.paymentUrl) {
           alert('Vei fi redirecționat către platforma de plată securizată PayU...');
+          clearCart(); // <--- ACEASTA ESTE LINIA ADĂUGATĂ (Golim coșul)
           window.location.href = data.paymentUrl; 
         } else {
           alert('Comanda a fost plasată cu succes!');
@@ -215,6 +228,37 @@ export default function ClientView({ onLogout, user }) {
       scrollToBottom(); 
     } catch (err) { alert('Eroare la trimiterea mesajului.'); }
   };
+
+  const unreadNotifs = notifications.filter(n => !n.isRead).length;
+  const handleReadNotification = async (nId) => {
+    await notificationService.markAsRead(nId);
+    setNotifications(await notificationService.getMyNotifications());
+  };
+
+  const NotificationBell = () => (
+    <div className="relative">
+      <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2 bg-emerald-800 hover:bg-emerald-600 rounded-full text-white relative transition">
+        <Bell className="w-5 h-5"/>
+        {unreadNotifs > 0 && <span className="absolute top-0 right-0 bg-red-500 w-3.5 h-3.5 rounded-full border-2 border-emerald-800 flex items-center justify-center text-[8px] font-bold text-white">{unreadNotifs}</span>}
+      </button>
+      {isNotificationsOpen && (
+        <div className="fixed top-24 left-4 right-4 md:absolute md:top-12 md:left-0 md:right-auto md:w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 max-h-[70vh] md:max-h-96 overflow-y-auto">
+          <div className="flex justify-between items-center border-b pb-2 mb-2">
+            <h3 className="font-bold text-slate-800">Notificări</h3>
+            <button onClick={() => setIsNotificationsOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4"/></button>
+          </div>
+          {notifications.length === 0 && <p className="text-sm text-gray-500 text-center py-4">Nu ai notificări.</p>}
+          {notifications.map(n => (
+            <div key={n.id} onClick={() => handleReadNotification(n.id)} className={`p-3 mb-2 rounded-xl cursor-pointer transition ${n.isRead ? 'bg-gray-50 opacity-60' : 'bg-emerald-50 border border-emerald-100 shadow-sm'}`}>
+              <p className={`text-[10px] uppercase font-bold mb-1 ${n.type === 'URGENT' ? 'text-red-600' : 'text-emerald-800'}`}>{n.title}</p>
+              <p className="text-sm text-slate-800 font-medium leading-tight">{n.content}</p>
+              <p className="text-[10px] text-gray-400 mt-2">{new Date(n.createdAt).toLocaleString('ro-RO')}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   // ================= RENDER TABS =================
   const renderContent = () => {
@@ -341,7 +385,7 @@ export default function ClientView({ onLogout, user }) {
                 </div>
                 <div className="bg-emerald-50 p-6 rounded-2xl mb-8 flex justify-between items-center border border-emerald-100">
                     <span className="font-bold text-xl text-emerald-900">Total Produse:</span>
-                    <span className="font-extrabold text-2xl text-emerald-700">{total} Lei</span>
+                    <span className="font-extrabold text-2xl text-emerald-700">{cartTotal} Lei</span>
                 </div>
                 <div className="flex gap-4">
                   <button onClick={clearCart} className="w-1/3 bg-white text-red-500 font-bold py-4 rounded-xl border border-red-200 hover:bg-red-50 transition">Goleste Coș</button>
@@ -577,7 +621,9 @@ export default function ClientView({ onLogout, user }) {
     <div className="h-[100dvh] md:h-screen bg-[#f7f1e8] flex flex-col md:flex-row font-sans overflow-hidden">
       <header className={`${tab === 'chat' ? 'hidden' : 'flex'} md:hidden bg-emerald-700 text-white p-5 rounded-b-3xl shadow-lg sticky top-0 z-30 justify-between items-center shrink-0`}>
         <div><h1 className="text-xl font-serif font-bold">Ferma Agape</h1><p className="text-emerald-100 text-sm mt-1">Salut, {user.firstName}! 👋</p></div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <NotificationBell />
+          <Leaf className="h-8 w-8 text-emerald-300 opacity-50" />
           <img src="/logo.png" alt="Logo" className="h-8 w-8 object-contain hidden sm:block" />
           <button onClick={onLogout} className="p-2 bg-emerald-800 hover:bg-emerald-900 rounded-full transition text-white shadow-sm" title="Deconectare">
             <LogOut className="w-5 h-5" />
@@ -586,7 +632,16 @@ export default function ClientView({ onLogout, user }) {
       </header>
 
       <aside className="hidden md:flex w-72 bg-white border-r border-slate-200 min-h-screen p-6 flex-col sticky top-0 z-20 shadow-sm shrink-0">
-        <div className="flex items-center gap-3 mb-10"><div className="bg-emerald-700 p-2 rounded-xl text-white"><img src="/logo.png" alt="Logo" className="h-6 w-6 object-contain" /></div><div><h1 className="text-xl font-serif font-bold text-slate-900">Ferma Agape</h1><p className="text-sm text-slate-500">Salut, {user.firstName}!</p></div></div>
+        <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-700 p-2 rounded-xl text-white"><img src="/logo.png" alt="Logo" className="h-6 w-6 object-contain" /></div>
+            <div>
+              <h1 className="text-xl font-serif font-bold text-slate-900">Ferma Agape</h1>
+              <p className="text-sm text-slate-500 truncate max-w-[140px]">Salut, {user.firstName}!</p>
+            </div>
+          </div>
+          <NotificationBell />
+        </div>
         <nav className="flex flex-col space-y-2 flex-1">
           <button onClick={() => setTab('home')} className={`flex items-center p-4 rounded-xl text-sm font-semibold transition ${tab === 'home' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'text-slate-600 hover:bg-slate-50'}`}><Package className="w-5 h-5 mr-3" /> Produse</button>
           <button onClick={() => setTab('cart')} className={`flex items-center justify-between p-4 rounded-xl text-sm font-semibold transition ${tab === 'cart' || tab === 'checkout' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'text-slate-600 hover:bg-slate-50'}`}><div className="flex items-center"><ShoppingCart className="w-5 h-5 mr-3" /> Coșul meu</div>{cart.length > 0 && <span className="bg-emerald-600 text-white px-2 py-0.5 rounded-full text-xs">{cart.length}</span>}</button>

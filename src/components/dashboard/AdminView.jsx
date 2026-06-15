@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Leaf, Menu, Package, Users, ShoppingCart, Truck, DollarSign, MessageCircle, Settings, LogOut, Edit2, Trash2, X, CheckCircle, ShieldAlert, ClipboardList, Map as MapIcon, Search, Filter, Save, Download, CreditCard, ChevronRight, Send } from 'lucide-react';
+import { Leaf, Menu, Package, Users, ShoppingCart, Truck, DollarSign, MessageCircle, Settings, LogOut, Edit2, Trash2, X, CheckCircle, ShieldAlert, ClipboardList, Map as MapIcon, Search, Filter, Save, Download, CreditCard, ChevronRight, Send, Bell } from 'lucide-react';
 import { productService } from '../../services/product.service';
 import { userService } from '../../services/user.service';
 import { orderService } from '../../services/order.service';
 import { messageService } from '../../services/message.service';
+import { settingsService } from '../../services/settings.service';
+import { notificationService } from '../../services/notification.service';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -65,10 +67,8 @@ export default function AdminView({ onLogout, user }) {
   const [filterPayment, setFilterPayment] = useState('ALL');
 
   // ================= SETĂRI ADMIN =================
-  const [adminSettings, setAdminSettings] = useState(() => {
-    const saved = localStorage.getItem('adminSettings');
-    return saved ? JSON.parse(saved) : { deliveryFee: 0, deliveryDays: ['Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri', 'Sâmbătă'] };
-  });
+  const [adminSettings, setAdminSettings] = useState({ deliveryFee: 0, deliveryDays: [] });
+  const [globalNotice, setGlobalNotice] = useState(''); // Pentru anunțul global
 
   // Stări Modale & Formulare
   const [isMapModalOpen, setMapModalOpen] = useState(false);
@@ -191,6 +191,7 @@ export default function AdminView({ onLogout, user }) {
     if (view === 'clients') loadClients();
     if (view === 'drivers') loadDrivers();
     if (view === 'orders' || view === 'finances') loadOrders();
+    if (view === 'settings') settingsService.get().then(setAdminSettings);
   }, [view]);
 
   // ================= LOGICĂ COMENZI =================
@@ -282,10 +283,22 @@ export default function AdminView({ onLogout, user }) {
   };
 
   // ================= SETĂRI ADMIN =================
-  const handleSaveSettings = () => {
-    localStorage.setItem('adminSettings', JSON.stringify(adminSettings));
-    alert('Setările au fost salvate cu succes!');
+  const handleSaveSettings = async () => {
+    try {
+      await settingsService.update(adminSettings);
+      alert('Setările au fost salvate cu succes pe server!');
+    } catch (err) { alert('Eroare la salvarea setărilor.'); }
   };
+
+  const handleSendGlobalNotice = async () => {
+    if (!globalNotice.trim()) return;
+    try {
+      await notificationService.sendGlobal(globalNotice);
+      alert('Notificare trimisă tuturor utilizatorilor!');
+      setGlobalNotice('');
+    } catch (err) { alert('Eroare la trimiterea notificării.'); }
+  };
+
   const toggleSettingsDay = (day) => {
     const days = adminSettings.deliveryDays;
     setAdminSettings({ ...adminSettings, deliveryDays: days.includes(day) ? days.filter(d => d !== day) : [...days, day] });
@@ -367,6 +380,20 @@ export default function AdminView({ onLogout, user }) {
               <h1 className="text-2xl font-bold text-gray-800">Rezumatul Zilei (Live)</h1>
               <button onClick={() => { setMapModalOpen(true); loadDrivers(); }} className="bg-blue-600 text-white px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-blue-700 shadow-md flex items-center justify-center gap-2 transition">
                 <MapIcon className="w-4 h-4"/> Harta Live Șoferi
+              </button>
+            </div>
+
+            {/* Caseta de Anunț Global */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-red-100 mt-2 mb-6 flex flex-col sm:flex-row gap-3">
+              <input 
+                type="text" 
+                value={globalNotice} 
+                onChange={e => setGlobalNotice(e.target.value)} 
+                placeholder="Trimite o notificare urgentă tuturor clienților..." 
+                className="flex-1 border p-3 rounded-xl outline-none focus:border-red-500 bg-red-50 text-slate-800" 
+              />
+              <button onClick={handleSendGlobalNotice} className="bg-red-500 text-white font-bold px-6 py-3 rounded-xl hover:bg-red-600 transition shadow-sm flex items-center justify-center whitespace-nowrap">
+                <Bell className="w-5 h-5 mr-2" /> Trimite Alerta
               </button>
             </div>
 
